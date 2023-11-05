@@ -120,7 +120,7 @@ contract BaseSessionKeyPlugin is BasePlugin, ISessionKeyPlugin {
         ManifestFunction memory ownerUserOpValidationFunction = ManifestFunction({
             functionType: ManifestAssociatedFunctionType.DEPENDENCY,
             functionId: uint8(FunctionId.USER_OP_VALIDATION_OWNER),
-            dependencyIndex: 1 
+            dependencyIndex: 0 // Used, but first index 
         });
         ManifestFunction memory tempOwnerUserOpValidationFunction = ManifestFunction({
             functionType: ManifestAssociatedFunctionType.SELF,
@@ -145,7 +145,7 @@ contract BaseSessionKeyPlugin is BasePlugin, ISessionKeyPlugin {
         ManifestFunction memory ownerOrSelfRuntimeValidationFunction = ManifestFunction({
             functionType: ManifestAssociatedFunctionType.DEPENDENCY,
             functionId: uint8(FunctionId.RUNTIME_VALIDATION_OWNER_OR_SELF),
-            dependencyIndex: 1 
+            dependencyIndex: 0
         });
 
         manifest.runtimeValidationFunctions = new ManifestAssociatedFunction[](5);
@@ -158,9 +158,8 @@ contract BaseSessionKeyPlugin is BasePlugin, ISessionKeyPlugin {
             associatedFunction: ownerOrSelfRuntimeValidationFunction
         });
 
-        manifest.dependencyInterfaceIds = new bytes4[](2);
-        manifest.dependencyInterfaceIds[0] = type(ISessionKeyPlugin).interfaceId;
-        manifest.dependencyInterfaceIds[1] = type(ISingleOwnerPlugin).interfaceId;
+        manifest.dependencyInterfaceIds = new bytes4[](1);
+        manifest.dependencyInterfaceIds[0] = type(ISingleOwnerPlugin).interfaceId;
 
         return manifest;
     }

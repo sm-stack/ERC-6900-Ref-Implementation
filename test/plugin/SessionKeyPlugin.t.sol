@@ -2,6 +2,7 @@
 pragma solidity ^0.8.19;
 
 import {Test} from "forge-std/Test.sol";
+import "forge-std/console.sol";
 
 import {EntryPoint} from "@eth-infinitism/account-abstraction/core/EntryPoint.sol";
 import {UserOperation} from "@eth-infinitism/account-abstraction/interfaces/UserOperation.sol";
@@ -66,8 +67,11 @@ contract SessionKeyPluginTest is Test {
 
     function setUp() public {
         ownerPlugin = new SingleOwnerPlugin();
+        console.log("ownerPlugin address: %s", address(ownerPlugin));
         baseSessionKeyPlugin = new BaseSessionKeyPlugin();
+        console.log("baseSessionKeyPlugin address: %s", address(baseSessionKeyPlugin));
         tokenSessionKeyPlugin = new TokenSessionKeyPlugin();
+        console.log("tokenSessionKeyPlugin address: %s", address(tokenSessionKeyPlugin));
 
         entryPoint = new EntryPoint();
         factory = new MSCAFactoryFixture(entryPoint, ownerPlugin);
@@ -86,56 +90,25 @@ contract SessionKeyPluginTest is Test {
         account = factory.createAccount(owner, 0);
         
         // First element should be empty
-        FunctionReference[] memory baseSessionDependency = new FunctionReference[](2);
-        baseSessionDependency[0] = address(baseSessionKeyPlugin).pack(
-            uint8(ManifestAssociatedFunctionType.SELF)
-        );
-        baseSessionDependency[1] = address(ownerPlugin).pack(
+        vm.startPrank(owner);
+        FunctionReference[] memory baseSessionDependency = new FunctionReference[](1);
+        baseSessionDependency[0] = address(ownerPlugin).pack(
             uint8(ManifestAssociatedFunctionType.DEPENDENCY)
         );
 
         bytes32 baseSessionKeyManifestHash = keccak256(abi.encode(baseSessionKeyPlugin.pluginManifest()));
-        UserOperation memory userOp = UserOperation({
-            sender: address(account),
-            nonce: 0,
-            initCode: '',
-            callData: abi.encodeCall(UpgradeableModularAccount.installPlugin, (
-                address(baseSessionKeyPlugin), 
-                baseSessionKeyManifestHash, 
-                "", 
-                baseSessionDependency, 
-                new IPluginManager.InjectedHook[](0)
-            )),
-            callGasLimit: CALL_GAS_LIMIT,
-            verificationGasLimit: VERIFICATION_GAS_LIMIT,
-            preVerificationGas: 0,
-            maxFeePerGas: 2,
-            maxPriorityFeePerGas: 1,
-            paymasterAndData: "",
-            signature: ""
+
+        account.installPlugin({
+            plugin: address(baseSessionKeyPlugin),
+            manifestHash: baseSessionKeyManifestHash,
+            pluginInitData: "",
+            dependencies: baseSessionDependency,
+            injectedHooks: new IPluginManager.InjectedHook[](0)
         });
 
-        // Generate signature
-        bytes32 userOpHash = entryPoint.getUserOpHash(userOp);
-        (uint8 v, bytes32 r, bytes32 s) = vm.sign(ownerKey, userOpHash.toEthSignedMessageHash());
-        userOp.signature = abi.encodePacked(r, s, v);
-
-        UserOperation[] memory userOps = new UserOperation[](1);
-        userOps[0] = userOp;
-
-        entryPoint.handleOps(userOps, beneficiary);
-        
-        // account.installPlugin({
-        //     plugin: address(baseSessionKeyPlugin),
-        //     manifestHash: baseSessionKeyManifestHash,
-        //     pluginInitData: "",
-        //     dependencies: baseSessionDependency,
-        //     injectedHooks: new IPluginManager.InjectedHook[](0)
-        // });
-
         // // First element should be empty
-        // FunctionReference[] memory tokenSessionDependency = new FunctionReference[](2);
-        // tokenSessionDependency[1] = address(tokenSessionKeyPlugin).pack(
+        // FunctionReference[] memory tokenSessionDependency = new FunctionReference[](1);
+        // tokenSessionDependency[0] = address(baseSessionKeyPlugin).pack(
         //     uint8(ManifestAssociatedFunctionType.DEPENDENCY)
         // );
         // bytes32 tokenSessionKeyManifestHash =

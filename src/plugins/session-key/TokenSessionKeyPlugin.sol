@@ -60,6 +60,12 @@ contract TokenSessionKeyPlugin is BasePlugin, ITokenSessionKeyPlugin {
     // ┏━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━┓
     // ┃    Plugin interface functions    ┃
     // ┗━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━┛
+    
+    /// @inheritdoc BasePlugin
+    function onInstall(bytes calldata data) external override {}
+
+    /// @inheritdoc BasePlugin
+    function onUninstall(bytes calldata) external override {}
 
     /// @inheritdoc BasePlugin
     function pluginManifest() external pure override returns (PluginManifest memory) {
@@ -78,7 +84,7 @@ contract TokenSessionKeyPlugin is BasePlugin, ITokenSessionKeyPlugin {
         ManifestFunction memory tempOwnerUserOpValidationFunction = ManifestFunction({
             functionType: ManifestAssociatedFunctionType.DEPENDENCY,
             functionId: uint8(FunctionId.USER_OP_VALIDATION_TEMPORARY_OWNER),
-            dependencyIndex: 1
+            dependencyIndex: 0 // Used as first index
         });
         manifest.userOpValidationFunctions = new ManifestAssociatedFunction[](2);
         manifest.userOpValidationFunctions[0] = ManifestAssociatedFunction({
