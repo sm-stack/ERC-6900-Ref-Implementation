@@ -18,7 +18,7 @@ import {ISessionKeyPlugin} from "./interfaces/ISessionKeyPlugin.sol";
 import {IPluginExecutor} from "../../interfaces/IPluginExecutor.sol";
 
 /// @title Session Key Plugin
-/// @author Seungmin Jeon, Sang Kim
+/// @author Decipher ERC-6900 Team
 /// @notice This plugin allows an EOA or smart contract to own a modular account.
 /// It also supports [ERC-1271](https://eips.ethereum.org/EIPS/eip-1271) signature
 /// validation for both validating the signature on user operations and in
@@ -35,9 +35,9 @@ import {IPluginExecutor} from "../../interfaces/IPluginExecutor.sol";
 /// send user operations through a bundler.
 contract TokenSessionKeyPlugin is BasePlugin, ITokenSessionKeyPlugin {
 
-    string public constant NAME = "Base Session Key Plugin";
+    string public constant NAME = "Token Session Key Plugin";
     string public constant VERSION = "1.0.0";
-    string public constant AUTHOR = "Seungmin Jeon, Sang Kim";
+    string public constant AUTHOR = "Decipher ERC-6900 Team";
 
     address internal constant _TARGET_ERC20_CONTRACT = 0xdeaDDeADDEaDdeaDdEAddEADDEAdDeadDEADDEaD;
     bytes4 internal constant _TRANSFERFROM_SELECTOR = bytes4(keccak256(bytes("transferFrom(address,address,uint256)")));
@@ -86,13 +86,9 @@ contract TokenSessionKeyPlugin is BasePlugin, ITokenSessionKeyPlugin {
             functionId: uint8(FunctionId.USER_OP_VALIDATION_TEMPORARY_OWNER),
             dependencyIndex: 0 // Used as first index
         });
-        manifest.userOpValidationFunctions = new ManifestAssociatedFunction[](2);
+        manifest.userOpValidationFunctions = new ManifestAssociatedFunction[](1);
         manifest.userOpValidationFunctions[0] = ManifestAssociatedFunction({
             executionSelector: this.routeCallToExecuteFromPluginExternal.selector,
-            associatedFunction: tempOwnerUserOpValidationFunction
-        });
-        manifest.userOpValidationFunctions[1] = ManifestAssociatedFunction({
-            executionSelector: BaseSessionKeyPlugin.userOpValidationFunction.selector,
             associatedFunction: tempOwnerUserOpValidationFunction
         });
 

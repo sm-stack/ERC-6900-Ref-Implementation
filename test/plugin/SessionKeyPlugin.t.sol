@@ -82,15 +82,18 @@ contract SessionKeyPluginTest is Test {
 
         beneficiary = payable(makeAddr("beneficiary"));
         vm.deal(beneficiary, 1 wei);
-        vm.deal(address(this), 10 ether);
+        vm.deal(owner, 10 ether);
 
         contractOwner = new ContractOwner();
+
+        vm.startPrank(owner);
 
         // Here, SingleOwnerPlugin already installed in factory
         account = factory.createAccount(owner, 0);
         
-        // First element should be empty
-        vm.startPrank(owner);
+        // Fund the account with some ether
+        vm.deal(address(account), 1 ether);
+
         FunctionReference[] memory baseSessionDependency = new FunctionReference[](1);
         baseSessionDependency[0] = address(ownerPlugin).pack(
             uint8(ManifestAssociatedFunctionType.DEPENDENCY)
@@ -106,20 +109,19 @@ contract SessionKeyPluginTest is Test {
             injectedHooks: new IPluginManager.InjectedHook[](0)
         });
 
-        // // First element should be empty
-        // FunctionReference[] memory tokenSessionDependency = new FunctionReference[](1);
-        // tokenSessionDependency[0] = address(baseSessionKeyPlugin).pack(
-        //     uint8(ManifestAssociatedFunctionType.DEPENDENCY)
-        // );
-        // bytes32 tokenSessionKeyManifestHash =
-        //     keccak256(abi.encode(tokenSessionKeyPlugin.pluginManifest()));
-        // account.installPlugin({
-        //     plugin: address(tokenSessionKeyPlugin),
-        //     manifestHash: tokenSessionKeyManifestHash,
-        //     pluginInitData: "",
-        //     dependencies: tokenSessionDependency,
-        //     injectedHooks: new IPluginManager.InjectedHook[](0)
-        // });
+        FunctionReference[] memory tokenSessionDependency = new FunctionReference[](1);
+        tokenSessionDependency[0] = address(baseSessionKeyPlugin).pack(
+            uint8(ManifestAssociatedFunctionType.DEPENDENCY)
+        );
+        bytes32 tokenSessionKeyManifestHash =
+            keccak256(abi.encode(tokenSessionKeyPlugin.pluginManifest()));
+        account.installPlugin({
+            plugin: address(tokenSessionKeyPlugin),
+            manifestHash: tokenSessionKeyManifestHash,
+            pluginInitData: "",
+            dependencies: tokenSessionDependency,
+            injectedHooks: new IPluginManager.InjectedHook[](0)
+        });
     }
 
     function test_basicUserOp() public {

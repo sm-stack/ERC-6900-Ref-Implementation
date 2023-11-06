@@ -19,7 +19,7 @@ import {ISingleOwnerPlugin} from "../owner/ISingleOwnerPlugin.sol";
 import {SingleOwnerPlugin} from "../owner/SingleOwnerPlugin.sol";
 
 /// @title Session Key Plugin
-/// @author Seungmin Jeon, Sang Kim
+/// @author Decipher ERC-6900 Team
 /// @notice This plugin allows an EOA or smart contract to own a modular account.
 /// It also supports [ERC-1271](https://eips.ethereum.org/EIPS/eip-1271) signature
 /// validation for both validating the signature on user operations and in
@@ -37,9 +37,9 @@ import {SingleOwnerPlugin} from "../owner/SingleOwnerPlugin.sol";
 contract BaseSessionKeyPlugin is BasePlugin, ISessionKeyPlugin {
     using ECDSA for bytes32;
 
-    string public constant NAME = "Token Session Key Plugin";
+    string public constant NAME = "Base Session Key Plugin";
     string public constant VERSION = "1.0.0";
-    string public constant AUTHOR = "Seungmin Jeon, Sang Kim";
+    string public constant AUTHOR = "Decipher ERC-6900 Team";
 
     uint256 internal constant _DATE_LENGTH = 6;
 
@@ -112,43 +112,41 @@ contract BaseSessionKeyPlugin is BasePlugin, ISessionKeyPlugin {
         string[] memory ownerPermissions = new string[](1);
         ownerPermissions[0] = "Allow Temporary Ownership";
 
-        manifest.executionFunctions = new ManifestExecutionFunction[](2);
+        manifest.executionFunctions = new ManifestExecutionFunction[](3);
         manifest.executionFunctions[0] =
             ManifestExecutionFunction(this.addTemporaryOwner.selector, ownerPermissions);
-        manifest.executionFunctions[1] = ManifestExecutionFunction(this.removeTemporaryOwner.selector, new string[](0));
+        manifest.executionFunctions[1] =
+            ManifestExecutionFunction(this.removeTemporaryOwner.selector, ownerPermissions);
+        manifest.executionFunctions[2] =
+            ManifestExecutionFunction(this.getSessionDuration.selector, new string[](0));
 
         ManifestFunction memory ownerUserOpValidationFunction = ManifestFunction({
             functionType: ManifestAssociatedFunctionType.DEPENDENCY,
             functionId: uint8(FunctionId.USER_OP_VALIDATION_OWNER),
-            dependencyIndex: 0 // Used, but first index 
+            dependencyIndex: 0 // Used as first index.
         });
-        ManifestFunction memory tempOwnerUserOpValidationFunction = ManifestFunction({
-            functionType: ManifestAssociatedFunctionType.SELF,
-            functionId: uint8(FunctionId.USER_OP_VALIDATION_TEMPORARY_OWNER),
-            dependencyIndex: 0 // Unused.
-        });
-        manifest.userOpValidationFunctions = new ManifestAssociatedFunction[](3);
+        manifest.userOpValidationFunctions = new ManifestAssociatedFunction[](2);
         manifest.userOpValidationFunctions[0] = ManifestAssociatedFunction({
-            executionSelector: UpgradeableModularAccount.executeFromPluginExternal.selector,
-            associatedFunction: tempOwnerUserOpValidationFunction
-        });
-        manifest.userOpValidationFunctions[1] = ManifestAssociatedFunction({
             executionSelector: this.addTemporaryOwner.selector,
             associatedFunction: ownerUserOpValidationFunction
         });
-        manifest.userOpValidationFunctions[2] = ManifestAssociatedFunction({
+        manifest.userOpValidationFunctions[1] = ManifestAssociatedFunction({
             executionSelector: this.removeTemporaryOwner.selector,
             associatedFunction: ownerUserOpValidationFunction
         });
         
-
         ManifestFunction memory ownerOrSelfRuntimeValidationFunction = ManifestFunction({
             functionType: ManifestAssociatedFunctionType.DEPENDENCY,
             functionId: uint8(FunctionId.RUNTIME_VALIDATION_OWNER_OR_SELF),
-            dependencyIndex: 0
+            dependencyIndex: 0 // Used as first index.
+        });
+        ManifestFunction memory alwaysAllowFunction = ManifestFunction({
+            functionType: ManifestAssociatedFunctionType.RUNTIME_VALIDATION_ALWAYS_ALLOW,
+            functionId: 0, // Unused.
+            dependencyIndex: 0 // Unused.
         });
 
-        manifest.runtimeValidationFunctions = new ManifestAssociatedFunction[](5);
+        manifest.runtimeValidationFunctions = new ManifestAssociatedFunction[](3);
         manifest.runtimeValidationFunctions[0] = ManifestAssociatedFunction({
             executionSelector: this.addTemporaryOwner.selector,
             associatedFunction: ownerOrSelfRuntimeValidationFunction
@@ -156,6 +154,10 @@ contract BaseSessionKeyPlugin is BasePlugin, ISessionKeyPlugin {
         manifest.runtimeValidationFunctions[1] = ManifestAssociatedFunction({
             executionSelector: this.removeTemporaryOwner.selector,
             associatedFunction: ownerOrSelfRuntimeValidationFunction
+        });
+        manifest.runtimeValidationFunctions[2] = ManifestAssociatedFunction({
+            executionSelector: this.getSessionDuration.selector,
+            associatedFunction: alwaysAllowFunction
         });
 
         manifest.dependencyInterfaceIds = new bytes4[](1);
