@@ -96,7 +96,7 @@ contract SessionKeyPluginTest is Test {
 
         FunctionReference[] memory baseSessionDependency = new FunctionReference[](1);
         baseSessionDependency[0] = address(ownerPlugin).pack(
-            uint8(ManifestAssociatedFunctionType.DEPENDENCY)
+            uint8(ISingleOwnerPlugin.FunctionId.USER_OP_VALIDATION_OWNER)
         );
 
         bytes32 baseSessionKeyManifestHash = keccak256(abi.encode(baseSessionKeyPlugin.pluginManifest()));
@@ -111,7 +111,7 @@ contract SessionKeyPluginTest is Test {
 
         FunctionReference[] memory tokenSessionDependency = new FunctionReference[](1);
         tokenSessionDependency[0] = address(baseSessionKeyPlugin).pack(
-            uint8(ManifestAssociatedFunctionType.DEPENDENCY)
+            uint8(ISessionKeyPlugin.FunctionId.USER_OP_VALIDATION_TEMPORARY_OWNER)
         );
         bytes32 tokenSessionKeyManifestHash =
             keccak256(abi.encode(tokenSessionKeyPlugin.pluginManifest()));
@@ -149,7 +149,5 @@ contract SessionKeyPluginTest is Test {
 
         entryPoint.handleOps(userOps, beneficiary);
     }
-
-    
 }
 
