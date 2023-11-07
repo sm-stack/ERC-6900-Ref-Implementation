@@ -2,7 +2,6 @@
 pragma solidity ^0.8.19;
 
 import {Test} from "forge-std/Test.sol";
-import "forge-std/console.sol";
 
 import {EntryPoint} from "@eth-infinitism/account-abstraction/core/EntryPoint.sol";
 import {UserOperation} from "@eth-infinitism/account-abstraction/interfaces/UserOperation.sol";
@@ -134,6 +133,7 @@ contract SessionKeyPluginTest is Test {
             injectedHooks: new IPluginManager.InjectedHook[](0)
         });
         vm.stopPrank();
+
         vm.startPrank(address(account));
         baseSessionKeyPlugin.addTemporaryOwner(tempOwner, 0, type(uint48).max);
         (uint48 _after, uint48 _until) = 
@@ -143,8 +143,8 @@ contract SessionKeyPluginTest is Test {
     }
 
     function test_transferByTempOwner() public {
-        // Calldata for transferFrom
         bytes[] memory callData = new bytes[](2);
+        // Since mint function at MockERC20 is not increasing allowance, we should do it manually for testing
         callData[0] = abi.encodeWithSelector(
             tokenSessionKeyPlugin.APPROVE_SELECTOR(),
             address(account),
@@ -164,13 +164,14 @@ contract SessionKeyPluginTest is Test {
                 TokenSessionKeyPlugin.routeCallToExecuteFromPluginExternal,
                 (address(mockERC20), callData[i])
             );
+
             UserOperation memory userOp = UserOperation({
                 sender: address(account),
                 nonce: i,
                 initCode: '',
                 callData: userOpCallData,
-                callGasLimit: CALL_GAS_LIMIT,
-                verificationGasLimit: VERIFICATION_GAS_LIMIT,
+                callGasLimit: CALL_GAS_LIMIT * 3,
+                verificationGasLimit: VERIFICATION_GAS_LIMIT * 3,
                 preVerificationGas: 0,
                 maxFeePerGas: 2,
                 maxPriorityFeePerGas: 1,
@@ -184,13 +185,12 @@ contract SessionKeyPluginTest is Test {
             userOp.signature = abi.encodePacked(r, s, v);
             
             userOps[i] = userOp;
-
             unchecked {
                 i++;
             }
         }
         entryPoint.handleOps(userOps, beneficiary);
-
+        
         assertEq(mockERC20.balanceOf(address(account)), 0);
         assertEq(mockERC20.balanceOf(beneficiary), 1 ether);
     }
