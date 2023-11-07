@@ -4,12 +4,6 @@ pragma solidity ^0.8.19;
 import {UserOperation} from "@eth-infinitism/account-abstraction/interfaces/UserOperation.sol";
 
 interface ITokenSessionKeyPlugin {
-    enum FunctionId {
-        RUNTIME_VALIDATION_OWNER_OR_SELF,
-        USER_OP_VALIDATION_OWNER,
-        USER_OP_VALIDATION_TEMPORARY_OWNER
-    }
-
     error NotAuthorized();
 
     /// @notice Route call to executeFromPluginExternal at the MSCA.
