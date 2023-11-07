@@ -43,7 +43,9 @@ contract SessionKeyPluginTest is Test {
     MSCAFactoryFixture public factory;
     UpgradeableModularAccount public account;
 
+    MockERC20 public mockERC20impl;
     MockERC20 public mockERC20;
+    address public mockEmptyERC20Addr;
 
     bytes4 internal constant _1271_MAGIC_VALUE = 0x1626ba7e;
 
@@ -73,9 +75,13 @@ contract SessionKeyPluginTest is Test {
 
         entryPoint = new EntryPoint();
         factory = new MSCAFactoryFixture(entryPoint, ownerPlugin);
-        mockERC20 = new MockERC20('Mock', 'MCK');
-        bytes memory code = address(mockERC20).code;
-        vm.etch(tokenSessionKeyPlugin.TARGET_ERC20_CONTRACT(), code);
+        mockERC20impl = new MockERC20('Mock', 'MCK');
+
+        // Etching MockERC20 code into hardcoded address at TokenSessionKeyPlugin
+        mockEmptyERC20Addr = tokenSessionKeyPlugin.TARGET_ERC20_CONTRACT();
+        bytes memory code = address(mockERC20impl).code;
+        vm.etch(mockEmptyERC20Addr, code);
+        mockERC20 = MockERC20(mockEmptyERC20Addr);
 
         (owner, ownerKey) = makeAddrAndKey("owner");
         (maliciousOwner, maliciousOwnerKey) = makeAddrAndKey("maliciousOwner");
@@ -87,10 +93,11 @@ contract SessionKeyPluginTest is Test {
 
         contractOwner = new ContractOwner();
 
-
         // Here, SingleOwnerPlugin already installed in factory
         account = factory.createAccount(owner, 0);
-        mockERC20.transfer(address(account), 1 ether);
+
+        // Mine Mock ERC20 Tokens to account
+        mockERC20.mint(address(account), 1 ether);
         // Fund the account with some ether
         vm.deal(address(account), 1 ether);
 
@@ -137,38 +144,51 @@ contract SessionKeyPluginTest is Test {
 
     function test_transferByTempOwner() public {
         // Calldata for transferFrom
-        bytes memory callData = abi.encodeWithSelector(
+        bytes[] memory callData = new bytes[](2);
+        callData[0] = abi.encodeWithSelector(
+            tokenSessionKeyPlugin.APPROVE_SELECTOR(),
+            address(account),
+            1 ether
+        );
+        callData[1] = abi.encodeWithSelector(
             tokenSessionKeyPlugin.TRANSFERFROM_SELECTOR(),
             address(account),
             beneficiary,
             1 ether
         );
 
-        bytes memory userOpCallData = abi.encodeCall(
-            TokenSessionKeyPlugin.routeCallToExecuteFromPluginExternal,
-            (address(mockERC20), callData)
-        );
-        UserOperation memory userOp = UserOperation({
-            sender: address(account),
-            nonce: 0,
-            initCode: '',
-            callData: userOpCallData,
-            callGasLimit: CALL_GAS_LIMIT,
-            verificationGasLimit: VERIFICATION_GAS_LIMIT,
-            preVerificationGas: 0,
-            maxFeePerGas: 2,
-            maxPriorityFeePerGas: 1,
-            paymasterAndData: "",
-            signature: ""
-        });
+        UserOperation[] memory userOps = new UserOperation[](2);
 
-        // Generate signature
-        bytes32 userOpHash = entryPoint.getUserOpHash(userOp);
-        (uint8 v, bytes32 r, bytes32 s) = vm.sign(tempOwnerKey, userOpHash.toEthSignedMessageHash());
-        userOp.signature = abi.encodePacked(r, s, v);
-        
-        UserOperation[] memory userOps = new UserOperation[](1);
-        userOps[0] = userOp;
+        for (uint i; i < callData.length;) {
+            bytes memory userOpCallData = abi.encodeCall(
+                TokenSessionKeyPlugin.routeCallToExecuteFromPluginExternal,
+                (address(mockERC20), callData[i])
+            );
+            UserOperation memory userOp = UserOperation({
+                sender: address(account),
+                nonce: i,
+                initCode: '',
+                callData: userOpCallData,
+                callGasLimit: CALL_GAS_LIMIT,
+                verificationGasLimit: VERIFICATION_GAS_LIMIT,
+                preVerificationGas: 0,
+                maxFeePerGas: 2,
+                maxPriorityFeePerGas: 1,
+                paymasterAndData: "",
+                signature: ""
+            });
+
+            // Generate signature
+            bytes32 userOpHash = entryPoint.getUserOpHash(userOp);
+            (uint8 v, bytes32 r, bytes32 s) = vm.sign(tempOwnerKey, userOpHash.toEthSignedMessageHash());
+            userOp.signature = abi.encodePacked(r, s, v);
+            
+            userOps[i] = userOp;
+
+            unchecked {
+                i++;
+            }
+        }
         entryPoint.handleOps(userOps, beneficiary);
 
         assertEq(mockERC20.balanceOf(address(account)), 0);
