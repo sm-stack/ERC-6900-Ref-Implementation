@@ -163,8 +163,12 @@ contract BaseSessionKeyPlugin is BasePlugin, ISessionKeyPlugin {
         });
 
         manifest.dependencyInterfaceIds = new bytes4[](2);
-        manifest.dependencyInterfaceIds[0] = type(ISingleOwnerPlugin).interfaceId;
-        manifest.dependencyInterfaceIds[1] = type(ISingleOwnerPlugin).interfaceId;
+        for (uint256 i = 0; i < manifest.dependencyInterfaceIds.length;) {
+            manifest.dependencyInterfaceIds[i] = type(ISingleOwnerPlugin).interfaceId;
+            unchecked {
+                i++;
+            }
+        }
 
         return manifest;
     }
