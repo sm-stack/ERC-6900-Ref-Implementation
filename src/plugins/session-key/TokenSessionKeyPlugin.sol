@@ -39,9 +39,9 @@ contract TokenSessionKeyPlugin is BasePlugin, ITokenSessionKeyPlugin {
     string public constant VERSION = "1.0.0";
     string public constant AUTHOR = "Decipher ERC-6900 Team";
 
-    address internal constant _TARGET_ERC20_CONTRACT = 0xdeaDDeADDEaDdeaDdEAddEADDEAdDeadDEADDEaD;
-    bytes4 internal constant _TRANSFERFROM_SELECTOR = bytes4(keccak256(bytes("transferFrom(address,address,uint256)")));
-    bytes4 internal constant _APPROVE_SELECTOR = bytes4(keccak256(bytes("approve(address,uint256)")));
+    address public constant TARGET_ERC20_CONTRACT = 0xdeaDDeADDEaDdeaDdEAddEADDEAdDeadDEADDEaD;
+    bytes4 public constant TRANSFERFROM_SELECTOR = bytes4(keccak256(bytes("transferFrom(address,address,uint256)")));
+    bytes4 public constant APPROVE_SELECTOR = bytes4(keccak256(bytes("approve(address,uint256)")));
 
     // ┏━━━━━━━━━━━━━━━━━━━━━━━━━━━┓
     // ┃    Execution functions    ┃
@@ -83,7 +83,7 @@ contract TokenSessionKeyPlugin is BasePlugin, ITokenSessionKeyPlugin {
 
         ManifestFunction memory tempOwnerUserOpValidationFunction = ManifestFunction({
             functionType: ManifestAssociatedFunctionType.DEPENDENCY,
-            functionId: uint8(FunctionId.USER_OP_VALIDATION_TEMPORARY_OWNER),
+            functionId: 0, // Unused
             dependencyIndex: 0 // Used as first index
         });
         manifest.userOpValidationFunctions = new ManifestAssociatedFunction[](1);
@@ -96,12 +96,12 @@ contract TokenSessionKeyPlugin is BasePlugin, ITokenSessionKeyPlugin {
         manifest.dependencyInterfaceIds[0] = type(ISessionKeyPlugin).interfaceId;
 
         bytes4[] memory permittedExecutionSelectors = new bytes4[](2);
-        permittedExecutionSelectors[0] = _TRANSFERFROM_SELECTOR;
-        permittedExecutionSelectors[1] = _APPROVE_SELECTOR;
+        permittedExecutionSelectors[0] = TRANSFERFROM_SELECTOR;
+        permittedExecutionSelectors[1] = APPROVE_SELECTOR;
 
         manifest.permittedExternalCalls = new ManifestExternalCallPermission[](1);
         manifest.permittedExternalCalls[0] = ManifestExternalCallPermission({
-            externalAddress: _TARGET_ERC20_CONTRACT,
+            externalAddress: TARGET_ERC20_CONTRACT,
             permitAnySelector: false,
             selectors: permittedExecutionSelectors
         });

@@ -95,7 +95,7 @@ contract BaseSessionKeyPlugin is BasePlugin, ISessionKeyPlugin {
         if (functionId == uint8(FunctionId.USER_OP_VALIDATION_TEMPORARY_OWNER)) {
             if (_sessionDuration[msg.sender][signer].length != 0) {
                 (uint48 _after, uint48 _until) = _decode(_sessionDuration[msg.sender][signer]);
-                return _packValidationData(true, _after, _until);
+                return _packValidationData(true, _until, _after);
             }
         }
         revert NotImplemented();
@@ -122,7 +122,7 @@ contract BaseSessionKeyPlugin is BasePlugin, ISessionKeyPlugin {
 
         ManifestFunction memory ownerUserOpValidationFunction = ManifestFunction({
             functionType: ManifestAssociatedFunctionType.DEPENDENCY,
-            functionId: uint8(FunctionId.USER_OP_VALIDATION_OWNER),
+            functionId: 0, // Unused.
             dependencyIndex: 0 // Used as first index.
         });
         manifest.userOpValidationFunctions = new ManifestAssociatedFunction[](2);
@@ -137,7 +137,7 @@ contract BaseSessionKeyPlugin is BasePlugin, ISessionKeyPlugin {
         
         ManifestFunction memory ownerOrSelfRuntimeValidationFunction = ManifestFunction({
             functionType: ManifestAssociatedFunctionType.DEPENDENCY,
-            functionId: uint8(FunctionId.RUNTIME_VALIDATION_OWNER_OR_SELF),
+            functionId: 0, // Unused.
             dependencyIndex: 0 // Used as first index.
         });
         ManifestFunction memory alwaysAllowFunction = ManifestFunction({
