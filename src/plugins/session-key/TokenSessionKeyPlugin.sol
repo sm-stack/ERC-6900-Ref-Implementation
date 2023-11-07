@@ -49,12 +49,10 @@ contract TokenSessionKeyPlugin is BasePlugin, ITokenSessionKeyPlugin {
 
     /// @inheritdoc ITokenSessionKeyPlugin
     function routeCallToExecuteFromPluginExternal(
-        address account,
         address target,
         bytes memory data    
     ) external returns (bytes memory returnData) {
-        require(msg.sender == account, "Only callable from this plugin");
-        returnData = IPluginExecutor(account).executeFromPluginExternal(target, 0, data);
+        returnData = IPluginExecutor(msg.sender).executeFromPluginExternal(target, 0, data);
     }
 
     // ┏━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━┓

@@ -20,6 +20,7 @@ import {UpgradeableModularAccount} from "../../src/account/UpgradeableModularAcc
 import {MSCAFactoryFixture} from "../mocks/MSCAFactoryFixture.sol";
 import {FunctionReference, FunctionReferenceLib} from "../../src/libraries/FunctionReferenceLib.sol";
 import {IPluginManager} from "../../src/interfaces/IPluginManager.sol";
+import {MockERC20} from "../mocks/MockERC20.sol";
 
 import {
     ManifestFunction,
@@ -42,6 +43,8 @@ contract SessionKeyPluginTest is Test {
     MSCAFactoryFixture public factory;
     UpgradeableModularAccount public account;
 
+    MockERC20 public mockERC20;
+
     bytes4 internal constant _1271_MAGIC_VALUE = 0x1626ba7e;
 
     address public owner;
@@ -57,8 +60,6 @@ contract SessionKeyPluginTest is Test {
 
     ContractOwner public contractOwner;
 
-    address public mockERC20 = 0x00adDEADDEAddeaDDEAddEaDDEaDDeadDEadDEaD;
-
     uint256 public constant CALL_GAS_LIMIT = 50000;
     uint256 public constant VERIFICATION_GAS_LIMIT = 1200000;
 
@@ -67,14 +68,14 @@ contract SessionKeyPluginTest is Test {
 
     function setUp() public {
         ownerPlugin = new SingleOwnerPlugin();
-        console.log("ownerPlugin address: %s", address(ownerPlugin));
         baseSessionKeyPlugin = new BaseSessionKeyPlugin();
-        console.log("baseSessionKeyPlugin address: %s", address(baseSessionKeyPlugin));
         tokenSessionKeyPlugin = new TokenSessionKeyPlugin();
-        console.log("tokenSessionKeyPlugin address: %s", address(tokenSessionKeyPlugin));
 
         entryPoint = new EntryPoint();
         factory = new MSCAFactoryFixture(entryPoint, ownerPlugin);
+        mockERC20 = new MockERC20('Mock', 'MCK');
+        bytes memory code = address(mockERC20).code;
+        vm.etch(tokenSessionKeyPlugin.TARGET_ERC20_CONTRACT(), code);
 
         (owner, ownerKey) = makeAddrAndKey("owner");
         (maliciousOwner, maliciousOwnerKey) = makeAddrAndKey("maliciousOwner");
@@ -86,17 +87,20 @@ contract SessionKeyPluginTest is Test {
 
         contractOwner = new ContractOwner();
 
-        vm.startPrank(owner);
 
         // Here, SingleOwnerPlugin already installed in factory
         account = factory.createAccount(owner, 0);
-        
+        mockERC20.transfer(address(account), 1 ether);
         // Fund the account with some ether
         vm.deal(address(account), 1 ether);
 
-        FunctionReference[] memory baseSessionDependency = new FunctionReference[](1);
+        vm.startPrank(owner);
+        FunctionReference[] memory baseSessionDependency = new FunctionReference[](2);
         baseSessionDependency[0] = address(ownerPlugin).pack(
             uint8(ISingleOwnerPlugin.FunctionId.USER_OP_VALIDATION_OWNER)
+        );
+        baseSessionDependency[1] = address(ownerPlugin).pack(
+            uint8(ISingleOwnerPlugin.FunctionId.RUNTIME_VALIDATION_OWNER_OR_SELF)
         );
 
         bytes32 baseSessionKeyManifestHash = keccak256(abi.encode(baseSessionKeyPlugin.pluginManifest()));
@@ -122,14 +126,33 @@ contract SessionKeyPluginTest is Test {
             dependencies: tokenSessionDependency,
             injectedHooks: new IPluginManager.InjectedHook[](0)
         });
+        vm.stopPrank();
+        vm.startPrank(address(account));
+        baseSessionKeyPlugin.addTemporaryOwner(tempOwner, 0, type(uint48).max);
+        (uint48 _after, uint48 _until) = 
+            baseSessionKeyPlugin.getSessionDuration(address(account), tempOwner);
+        assertEq(_after, 0);
+        assertEq(_until, type(uint48).max);
     }
 
-    function test_basicUserOp() public {
+    function test_transferByTempOwner() public {
+        // Calldata for transferFrom
+        bytes memory callData = abi.encodeWithSelector(
+            tokenSessionKeyPlugin.TRANSFERFROM_SELECTOR(),
+            address(account),
+            beneficiary,
+            1 ether
+        );
+
+        bytes memory userOpCallData = abi.encodeCall(
+            TokenSessionKeyPlugin.routeCallToExecuteFromPluginExternal,
+            (address(mockERC20), callData)
+        );
         UserOperation memory userOp = UserOperation({
             sender: address(account),
             nonce: 0,
             initCode: '',
-            callData: abi.encodeCall(BaseSessionKeyPlugin.addTemporaryOwner, (tempOwner, 0, 1000)),
+            callData: userOpCallData,
             callGasLimit: CALL_GAS_LIMIT,
             verificationGasLimit: VERIFICATION_GAS_LIMIT,
             preVerificationGas: 0,
@@ -141,13 +164,15 @@ contract SessionKeyPluginTest is Test {
 
         // Generate signature
         bytes32 userOpHash = entryPoint.getUserOpHash(userOp);
-        (uint8 v, bytes32 r, bytes32 s) = vm.sign(ownerKey, userOpHash.toEthSignedMessageHash());
+        (uint8 v, bytes32 r, bytes32 s) = vm.sign(tempOwnerKey, userOpHash.toEthSignedMessageHash());
         userOp.signature = abi.encodePacked(r, s, v);
-
+        
         UserOperation[] memory userOps = new UserOperation[](1);
         userOps[0] = userOp;
-
         entryPoint.handleOps(userOps, beneficiary);
+
+        assertEq(mockERC20.balanceOf(address(account)), 0);
+        assertEq(mockERC20.balanceOf(beneficiary), 1 ether);
     }
 }
 

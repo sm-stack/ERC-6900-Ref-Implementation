@@ -93,9 +93,11 @@ contract BaseSessionKeyPlugin is BasePlugin, ISessionKeyPlugin {
     {
         (address signer,) = (userOpHash.toEthSignedMessageHash()).tryRecover(userOp.signature);
         if (functionId == uint8(FunctionId.USER_OP_VALIDATION_TEMPORARY_OWNER)) {
-            if (_sessionDuration[msg.sender][signer].length != 0) {
-                (uint48 _after, uint48 _until) = _decode(_sessionDuration[msg.sender][signer]);
-                return _packValidationData(true, _until, _after);
+            bytes memory duration = _sessionDuration[userOp.sender][signer];
+            if (duration.length != 0) {
+                (uint48 _after, uint48 _until) = _decode(duration);
+                // first parameter of _packValidationData is sigFailed, which should be false
+                return _packValidationData(false, _until, _after);
             }
         }
         revert NotImplemented();
@@ -138,7 +140,7 @@ contract BaseSessionKeyPlugin is BasePlugin, ISessionKeyPlugin {
         ManifestFunction memory ownerOrSelfRuntimeValidationFunction = ManifestFunction({
             functionType: ManifestAssociatedFunctionType.DEPENDENCY,
             functionId: 0, // Unused.
-            dependencyIndex: 0 // Used as first index.
+            dependencyIndex: 1
         });
         ManifestFunction memory alwaysAllowFunction = ManifestFunction({
             functionType: ManifestAssociatedFunctionType.RUNTIME_VALIDATION_ALWAYS_ALLOW,
@@ -160,8 +162,9 @@ contract BaseSessionKeyPlugin is BasePlugin, ISessionKeyPlugin {
             associatedFunction: alwaysAllowFunction
         });
 
-        manifest.dependencyInterfaceIds = new bytes4[](1);
+        manifest.dependencyInterfaceIds = new bytes4[](2);
         manifest.dependencyInterfaceIds[0] = type(ISingleOwnerPlugin).interfaceId;
+        manifest.dependencyInterfaceIds[1] = type(ISingleOwnerPlugin).interfaceId;
 
         return manifest;
     }
