@@ -6,13 +6,15 @@ import {IERC1271} from "@openzeppelin/contracts/interfaces/IERC1271.sol";
 import {SignatureChecker} from "@openzeppelin/contracts/utils/cryptography/SignatureChecker.sol";
 import {UserOperation} from "@eth-infinitism/account-abstraction/interfaces/UserOperation.sol";
 
-import {UpgradeableModularAccount, UUPSUpgradeable} from "../../account/UpgradeableModularAccount.sol";
+import {UUPSUpgradeable} from "@openzeppelin/contracts/proxy/utils/UUPSUpgradeable.sol";
+import {IPluginManager} from "../../interfaces/IPluginManager.sol";
 import {
     ManifestFunction,
     ManifestAssociatedFunctionType,
     ManifestAssociatedFunction,
     PluginManifest,
-    ManifestExecutionFunction
+    PluginMetadata,
+    SelectorPermission
 } from "../../interfaces/IPlugin.sol";
 import {IStandardExecutor} from "../../interfaces/IStandardExecutor.sol";
 import {BasePlugin} from "../BasePlugin.sol";
@@ -138,18 +140,10 @@ contract SingleOwnerPlugin is BasePlugin, ISingleOwnerPlugin, IERC1271 {
     function pluginManifest() external pure override returns (PluginManifest memory) {
         PluginManifest memory manifest;
 
-        manifest.name = NAME;
-        manifest.version = VERSION;
-        manifest.author = AUTHOR;
-
-        string[] memory ownerPermissions = new string[](1);
-        ownerPermissions[0] = "Modify Ownership";
-
-        manifest.executionFunctions = new ManifestExecutionFunction[](3);
-        manifest.executionFunctions[0] =
-            ManifestExecutionFunction(this.transferOwnership.selector, ownerPermissions);
-        manifest.executionFunctions[1] = ManifestExecutionFunction(this.isValidSignature.selector, new string[](0));
-        manifest.executionFunctions[2] = ManifestExecutionFunction(this.owner.selector, new string[](0));
+        manifest.executionFunctions = new bytes4[](3);
+        manifest.executionFunctions[0] = this.transferOwnership.selector;
+        manifest.executionFunctions[1] = this.isValidSignature.selector;
+        manifest.executionFunctions[2] = this.owner.selector;
 
         ManifestFunction memory ownerUserOpValidationFunction = ManifestFunction({
             functionType: ManifestAssociatedFunctionType.SELF,
@@ -170,11 +164,11 @@ contract SingleOwnerPlugin is BasePlugin, ISingleOwnerPlugin, IERC1271 {
             associatedFunction: ownerUserOpValidationFunction
         });
         manifest.userOpValidationFunctions[3] = ManifestAssociatedFunction({
-            executionSelector: UpgradeableModularAccount.installPlugin.selector,
+            executionSelector: IPluginManager.installPlugin.selector,
             associatedFunction: ownerUserOpValidationFunction
         });
         manifest.userOpValidationFunctions[4] = ManifestAssociatedFunction({
-            executionSelector: UpgradeableModularAccount.uninstallPlugin.selector,
+            executionSelector: IPluginManager.uninstallPlugin.selector,
             associatedFunction: ownerUserOpValidationFunction
         });
         manifest.userOpValidationFunctions[5] = ManifestAssociatedFunction({
@@ -214,11 +208,11 @@ contract SingleOwnerPlugin is BasePlugin, ISingleOwnerPlugin, IERC1271 {
             associatedFunction: ownerOrSelfRuntimeValidationFunction
         });
         manifest.runtimeValidationFunctions[4] = ManifestAssociatedFunction({
-            executionSelector: UpgradeableModularAccount.installPlugin.selector,
+            executionSelector: IPluginManager.installPlugin.selector,
             associatedFunction: ownerOrSelfRuntimeValidationFunction
         });
         manifest.runtimeValidationFunctions[5] = ManifestAssociatedFunction({
-            executionSelector: UpgradeableModularAccount.uninstallPlugin.selector,
+            executionSelector: IPluginManager.uninstallPlugin.selector,
             associatedFunction: ownerOrSelfRuntimeValidationFunction
         });
         manifest.runtimeValidationFunctions[6] = ManifestAssociatedFunction({
@@ -237,6 +231,25 @@ contract SingleOwnerPlugin is BasePlugin, ISingleOwnerPlugin, IERC1271 {
         return manifest;
     }
 
+    /// @inheritdoc BasePlugin
+    function pluginMetadata() external pure virtual override returns (PluginMetadata memory) {
+        PluginMetadata memory metadata;
+        metadata.name = NAME;
+        metadata.version = VERSION;
+        metadata.author = AUTHOR;
+
+        // Permission strings
+        string memory modifyOwnershipPermission = "Modify Ownership";
+
+        // Permission descriptions
+        metadata.permissionDescriptors = new SelectorPermission[](1);
+        metadata.permissionDescriptors[0] = SelectorPermission({
+            functionSelector: this.transferOwnership.selector,
+            permissionDescription: modifyOwnershipPermission
+        });
+
+        return metadata;
+    }
     // ┏━━━━━━━━━━━━━━━┓
     // ┃    EIP-165    ┃
     // ┗━━━━━━━━━━━━━━━┛

@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: UNLICENSED
+// SPDX-License-Identifier: GPL-3.0
 pragma solidity ^0.8.19;
 
 type FunctionReference is bytes21;
@@ -23,6 +23,10 @@ library FunctionReferenceLib {
         bytes21 underlying = FunctionReference.unwrap(fr);
         addr = address(bytes20(underlying));
         functionId = uint8(bytes1(underlying << 160));
+    }
+
+    function isEmpty(FunctionReference fr) internal pure returns (bool) {
+        return fr == _EMPTY_FUNCTION_REFERENCE;
     }
 
     function isEmptyOrMagicValue(FunctionReference fr) internal pure returns (bool) {
